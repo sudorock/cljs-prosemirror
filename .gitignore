@@ -5,3 +5,4 @@ fulcro-todo-app.iml
 node_modules/
 resources/public/js/
 .DS_Store
+prosemirror.iml
