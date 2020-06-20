@@ -13,13 +13,6 @@
 (defn dir [x]
   (js/console.dir x))
 
-(def radio-buttons-dom (.querySelectorAll js/document "input[type=radio]"))
-(def editor-dom (.getElementById js/document "editor"))
-(def content-dom (.getElementById js/document "content"))
-
-(def editor-state
-  (atom {:view nil}))
-
 (defn parse-markdown [content]
   (.parse defaultMarkdownParser content))
 
@@ -55,14 +48,14 @@
   (destroy [_]
     (.destroy target)))
 
-(defmulti make (fn [View _ _] View))
+(defmulti create (fn [View _ _] View))
 
-(defmethod make MarkdownView [_ target content]
+(defmethod create MarkdownView [_ target content]
   (let [textarea-dom (create-text-area target)]
     (set! (.-value textarea-dom) content)
     (->MarkdownView textarea-dom)))
 
-(defmethod make RichtextView [_ target content]
+(defmethod create RichtextView [_ target content]
   (->RichtextView (EditorView.
                     target
                     (clj->js {:state (.create EditorState (clj->js {:doc     (parse-markdown content)
@@ -72,20 +65,23 @@
   (map #(.addEventListener % "change" callback) buttons))
 
 (defn init []
-  (let [content-dom-value (.-value content-dom)
-        markdown-view (make MarkdownView editor-dom content-dom-value)]
-    (reset! editor-state {:view markdown-view})
+  (let [radio-buttons-dom (.querySelectorAll js/document "input[type=radio]")
+        editor-dom (.getElementById js/document "editor")
+        content-dom (.getElementById js/document "content")
+        content-dom-value (.-value content-dom)
+        markdown-view (create MarkdownView editor-dom content-dom-value)
+        current-view (atom nil)]
+    (reset! current-view markdown-view)
     (add-event-listener radio-buttons-dom (fn []
                                             (this-as button
-                                              (let [current-view (:view @editor-state)
-                                                    View (if (= "markdown" (.-value button))
+                                              (let [View (if (= "markdown" (.-value button))
                                                            MarkdownView
                                                            RichtextView)
                                                     button-checked? (.-checked button)]
                                                 (when button-checked?
-                                                  (when-not (instance? View current-view)
-                                                    (let [content (content current-view)
-                                                          _ (destroy current-view)
-                                                          new-view (make View editor-dom content)]
-                                                      (reset! editor-state {:view new-view})
+                                                  (when-not (instance? View @current-view)
+                                                    (let [content (content @current-view)
+                                                          _ (destroy @current-view)
+                                                          new-view (create View editor-dom content)]
+                                                      (reset! current-view {:view new-view})
                                                       (focus new-view))))))))))
